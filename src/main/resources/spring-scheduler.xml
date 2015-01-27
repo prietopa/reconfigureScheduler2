@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+  http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+  http://www.springframework.org/schema/context
+  http://www.springframework.org/schema/context/spring-context-3.0.xsd">
+
+    <import resource="classpath:spring-reloadProperties.xml" />
+  
+	<context:annotation-config />
+	<context:component-scan base-package="net.jm.pp.scheduler.quartz" />
+
+	<bean id="semaphoreJobLicitacionQuartz" class="java.util.concurrent.Semaphore">
+		<constructor-arg index="0" type="int" value="1" />
+		<constructor-arg index="1" type="boolean" value="true" />
+		<!-- permits - the initial number of permits available. This value may 
+			be negative, in which case releases must occur before any acquires will be 
+			granted. -->
+		<!-- fair - true if this semaphore will guarantee first-in first-out granting 
+			of permits under contention, else false -->
+	</bean>
+	
+	<bean name="jobLicitacionQuartz"
+		class="org.springframework.scheduling.quartz.JobDetailFactoryBean">
+		<property name="jobClass"
+			value="net.jm.pp.scheduler.quartz.jobs.LicitacionJobQuartz" />
+		<property name="jobDataAsMap">
+			<map>
+				<entry key="semaphoreJobLicitacionQuartz" value-ref="semaphoreJobLicitacionQuartz" />
+			</map>
+		</property>
+		<property name="durability" value="true" />
+	</bean>
+
+	<bean id="cronLicitacionTrigger"
+		class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+		<property name="jobDetail" ref="jobLicitacionQuartz" />
+		<property name="cronExpression"
+			value="${scheduler.trigger.licitacion.cron.expression}" />
+	</bean>
+
+	<bean name="jobAutoreconfigure"
+		class="org.springframework.scheduling.quartz.JobDetailFactoryBean">
+		<property name="jobClass"
+			value="net.jm.pp.scheduler.quartz.jobs.AutoreconfigureJobQuartz" />
+		<property name="jobDataAsMap">
+			<map>
+				<entry key="reconfigureCron" value-ref="reconfigureCron" />
+			</map>
+		</property>
+		<property name="durability" value="true" />
+	</bean>
+
+	<bean id="cronAutoreconfigureTrigger"
+		class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+		<property name="jobDetail" ref="jobAutoreconfigure" />
+		<property name="cronExpression"
+			value="${scheduler.trigger.autoreconfigure.cron.expression}" />
+	</bean>
+
+	<bean id="schedulerFactoryBean"
+		class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+		<property name="autoStartup" value="true" />
+		<!-- <property name="startupDelay" value="2" /> -->
+		<property name="applicationContextSchedulerContextKey" value="applicationContext" />
+		<property name="waitForJobsToCompleteOnShutdown" value="true" />
+		<property name="overwriteExistingJobs" value="false" />
+		<property name="ConfigLocation" value="classpath:quartz.properties"></property>
+		<property name="triggers">
+			<list>
+				<ref bean="cronLicitacionTrigger" />
+				<ref bean="cronAutoreconfigureTrigger" />
+			</list>
+		</property>
+		<property name="schedulerListeners">
+			<list>
+				<ref bean="licitacionSchedulerListener" />
+			</list>
+		</property>
+	</bean>
+
+</beans>
